@@ -3,10 +3,8 @@ import argparse
 import configparser
 import requests
 import re
+from datetime import datetime
 from pprint import pprint
-
-
-cpe_regex = r'''cpe:2\.3:[aho\*\-](:(((\?*|\*?)([a-zA-Z0-9\-\._]|(\\[\\\*\?!"#$$%&'\(\)\+,/:;<=>@\[\]\^`\{\|}~]))+(\?*|\*?))|[\*\-])){5}(:(([a-zA-Z]{2,3}(-([a-zA-Z]{2}|[0-9]{3}))?)|[\*\-]))(:(((\?*|\*?)([a-zA-Z0-9\-\._]|(\\[\\\*\?!"#$$%&'\(\)\+,/:;<=>@\[\]\^`\{\|}~]))+(\?*|\*?))|[\*\-])){4}'''
 
 class api_conn:
 	def __init__(self, baseurl):
@@ -50,9 +48,24 @@ def define_parser():
 # Devolver cpe de un nombre random
 def cpe_from_vendor(client, string): return client.make_request({"keywordSearch" : string})
 
-
 # Devolver cves a partir de un cpe
-def cve_from_cpe(cve_client, args): return
+def cve_from_cpe(client, args): 
+	params = {"cpeName":args.query}
+	if args.date:
+
+		startDate = datetime.strptime(args.date.split('/')[0], '%m-%Y')
+		startDate_iso = startDate.replace(day=1).strftime('%Y-%m-%dT00:00:00')
+
+		endDate = datetime.strptime(args.date.split('/')[1], '%m-%Y')
+		endDate_iso = endDate.replace(day=1).strftime('%Y-%m-%dT00:00:00')
+
+		params.update({"pubStartDate" : startDate_iso, "pubEndDate" : endDate_iso})
+
+	if args.severity:
+		params.update({"cvssV3Severity" : args.severity})
+
+	print(params)
+	return client.make_request(params)
 
 if __name__ == '__main__':
 	p = define_parser()
@@ -67,17 +80,9 @@ if __name__ == '__main__':
 
 	if is_cpe(args.query):
 		print(f"[*] Searching CVEs associated to: {args.query}")
-		output = cve_from_cpe(cpe_client, args)
-		if(output['totalResults'] > 0): 
-			pprint(output)
-		else:
-			print(f"[*] No results from query {args.query}")
+		output = cve_from_cpe(cve_client, args)
 	else:
 		print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
-		if(output['totalResults'] > 0): 
-			pprint(output)
-		else:
-			print(f"[*] No results from query {args.query}")
 
-
+	print(output)
