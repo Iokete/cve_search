@@ -71,10 +71,17 @@ def cve_from_cpe(client, args):
 	if args.severity:
 		params.update({"cvssV3Severity" : args.severity})
 
-	print(params)
 	return client.make_request(params)
 
-if __name__ == '__main__':
+def export_csv(data, filename):
+	if not filename.endswith(".csv"):
+		filename = filename + ".csv"	
+	with open(filename, "w", newline="") as csvfile:
+		fieldnames = FIELD_NAMES
+		writer = csv.DictWriter(csvfile, fieldnames)
+		writer.writeheader()	
+
+def main():
 	p = define_parser()
 
 	args = p.parse_args()
@@ -92,18 +99,17 @@ if __name__ == '__main__':
 		print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
 
-	print(args)
-
 	if (output.status_code) == 200:
 		print(f"[*] Status 200")
-		if(output.json()['totalResults'] > 0):
-			print(f"[*] Found {output.json()['totalResults']} results.")
+		data = output.json()
+		if(data['totalResults'] > 0):
+			print(f"[*] Found {data['totalResults']} results.")
 			if args.outfile is not None:
-				if not args.outfile.endswith(".csv"):
-					args.outfile = args.outfile + ".csv"
-					with open(args.outfile, "w", newline="") as csvfile:
-						fieldnames = FIELD_NAMES
-						writer = csv.DictWriter(csvfile, fieldnames)
-						writer.writeheader()
+				export_csv(data, args.outfile)
 			if args.verbose:
-				pprint(output.json())
+				pprint(output.json())	
+
+
+
+if __name__ == '__main__':
+	main()
