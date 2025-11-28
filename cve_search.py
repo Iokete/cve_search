@@ -3,8 +3,11 @@ import argparse
 import configparser
 import requests
 import re
+import csv
 from datetime import datetime
 from pprint import pprint
+
+FIELD_NAMES = ["Nombre del producto", "CPE", "CVE", "Severity", "CVSS3.1 Base Score", "Vector (URL)", "Descripción", "Fecha de publicación", "CWE id"]
 
 class api_conn:
 	def __init__(self, baseurl):
@@ -13,7 +16,7 @@ class api_conn:
 	def make_request(self, param):
 		try:
 			req = requests.get(self.baseurl, params=param)
-			return req.json()
+			return req
 		except Exception as e:
 			print(f"[!] Error: {e}\n");
 			return None
@@ -39,9 +42,9 @@ def define_parser():
 
 	parser.add_argument("query",help="producto/vendedor/cpe")
 	parser.add_argument("--filter", dest="severity", choices=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'], help="filtrar por CVSS3 severity - solo cve")
-	parser.add_argument("--date", dest="date", help="especificar rango de fecha (mm-aaaa/mm-aaaa) - solo cve", required=False)
+	parser.add_argument("--date", dest="date", help="especificar rango de fecha (mm-aaaa/mm-aaaa) - solo cve: Máximo 120 días de rango", required=False)
 	parser.add_argument("-f", dest="outfile", help="guardar resultados a un archivo", metavar='FILE', required=False)
-	parser.add_argument("-out", help="imprimir output", required=False, action='store_true', default=True)
+	parser.add_argument("-out", dest="verbose", help="imprimir output", required=False, action='store_true', default=False)
 
 	return parser
 
@@ -50,14 +53,18 @@ def cpe_from_vendor(client, string): return client.make_request({"keywordSearch"
 
 # Devolver cves a partir de un cpe
 def cve_from_cpe(client, args): 
-	params = {"cpeName":args.query}
+	params = {"virtualMatchString":args.query}
 	if args.date:
 
 		startDate = datetime.strptime(args.date.split('/')[0], '%m-%Y')
-		startDate_iso = startDate.replace(day=1).strftime('%Y-%m-%dT00:00:00')
+		startDate_iso = startDate.replace(day=1).strftime('%Y-%m-%dT00:00:00Z')
 
 		endDate = datetime.strptime(args.date.split('/')[1], '%m-%Y')
-		endDate_iso = endDate.replace(day=1).strftime('%Y-%m-%dT00:00:00')
+		endDate_iso = endDate.replace(day=1).strftime('%Y-%m-%dT00:00:00Z')
+
+		if (endDate.month - startDate.month) > 2 :
+			print(f"[!] Bad date format, exiting. ")
+			exit(1)  
 
 		params.update({"pubStartDate" : startDate_iso, "pubEndDate" : endDate_iso})
 
@@ -85,4 +92,18 @@ if __name__ == '__main__':
 		print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
 
-	print(output)
+	print(args)
+
+	if (output.status_code) == 200:
+		print(f"[*] Status 200")
+		if(output.json()['totalResults'] > 0):
+			print(f"[*] Found {output.json()['totalResults']} results.")
+			if args.outfile is not None:
+				if not args.outfile.endswith(".csv"):
+					args.outfile = args.outfile + ".csv"
+					with open(args.outfile, "w", newline="") as csvfile:
+						fieldnames = FIELD_NAMES
+						writer = csv.DictWriter(csvfile, fieldnames)
+						writer.writeheader()
+			if args.verbose:
+				pprint(output.json())
