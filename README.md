@@ -1,5 +1,5 @@
 ## cve_search.py
-Proyecto para la asignatura auditoría, que presenta un script en Python que realiza búsquedas de CVE y CPE mediante el uso de las APIs de NVE:
+Proyecto para la asignatura Auditoría, que presenta un script en Python que realiza búsquedas por CVE y CPE mediante el uso de las APIs de NVD:
 * CVE: https://nvd.nist.gov/developers/vulnerabilities 
 * CPE: https://nvd.nist.gov/developers/products
 
