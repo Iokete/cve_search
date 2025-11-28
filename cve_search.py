@@ -81,9 +81,15 @@ def export_csv(data, filename):
 		writer = csv.DictWriter(csvfile, fieldnames)
 		writer.writeheader()	
 
+def parse_fields(data):
+	data_dict = {field : "" for field in FIELD_NAMES}
+	#data_dict['Nombre del producto'] = 
+	print(len(data['vulnerabilities']))
+	print(data_dict)
+
 def main():
 	p = define_parser()
-
+	is_cve = False
 	args = p.parse_args()
 	cve_url, cpe_url = retrieve_urls()
 
@@ -95,6 +101,7 @@ def main():
 	if is_cpe(args.query):
 		print(f"[*] Searching CVEs associated to: {args.query}")
 		output = cve_from_cpe(cve_client, args)
+		is_cve = True
 	else:
 		print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
@@ -104,10 +111,14 @@ def main():
 		data = output.json()
 		if(data['totalResults'] > 0):
 			print(f"[*] Found {data['totalResults']} results.")
-			if args.outfile is not None:
-				export_csv(data, args.outfile)
+			if is_cve:
+				if args.outfile is not None:
+					#export_csv(data, args.outfile)
+					parse_fields(data)
 			if args.verbose:
 				pprint(output.json())	
+		else:
+			print(f"[-] No results found.")
 
 
 
