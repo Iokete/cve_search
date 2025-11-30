@@ -73,19 +73,96 @@ def cve_from_cpe(client, args):
 
 	return client.make_request(params)
 
-def export_csv(data, filename):
+def export_csv(entries, filename):
 	if not filename.endswith(".csv"):
 		filename = filename + ".csv"	
 	with open(filename, "w", newline="") as csvfile:
 		fieldnames = FIELD_NAMES
 		writer = csv.DictWriter(csvfile, fieldnames)
-		writer.writeheader()	
+		writer.writeheader()
+		for entr in entries:
+			writer.writerow(entr)	
 
 def parse_fields(data):
-	data_dict = {field : "" for field in FIELD_NAMES}
-	#data_dict['Nombre del producto'] = 
-	print(len(data['vulnerabilities']))
-	print(data_dict)
+	entry = {field : "" for field in FIELD_NAMES}
+
+	cve_data = data['vulnerabilities']
+
+	entries = []
+
+	for vuln in cve_data:
+
+		cve = vuln['cve']
+
+		cve_id = cve['id']
+		date = cve['published'].split('T')[0]
+
+		desc = "N/A"
+		for d in cve.get("descriptions", []):
+			if d.get("lang") == "en":
+				desc = d.get("value", "N/A")
+				break
+
+		cwe_id = "N/A"
+		for weakness in cve.get("weaknesses", []):
+			for d in weakness.get("description", []):
+				if d.get("lang") == "en" and "CWE-" in d.get("value", ""):
+					cwe_id = d.get("value", "N/A")
+					break
+			if cwe_id != "N/A":
+				break
+
+		score = "N/A"
+		severity = "N/A"
+		vector_url = "N/A"
+		metrics = cve.get("metrics", {})
+
+		if "cvssMetricV31" in metrics and metrics["cvssMetricV31"]:
+			cvss_data = metrics["cvssMetricV31"][0].get("cvssData", {})
+			score = cvss_data.get("baseScore", "N/A")
+			severity = metrics["cvssMetricV31"][0].get("baseSeverity", "N/A")
+			vector_str = cvss_data.get("vectorString", "")
+			if vector_str:
+				vector_url = f"https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector={vector_str}"
+        
+ 
+		producto = "N/A"
+		cpe = "N/A"
+        
+		for config in cve.get("configurations", []):
+			for node in config.get("nodes", []):
+				for cpe_match in node.get("cpeMatch", []):
+					if cpe_match.get("vulnerable", False):
+						cpe = cpe_match.get("criteria", "N/A")
+                        # Extraer nombre del producto del CPE
+						parts = cpe.split(":")
+						if len(parts) >= 5:
+							vendor = parts[3]
+							product = parts[4]
+							if vendor != "*" and product != "*":
+								producto = f"{vendor} {product}"
+						break
+				if producto != "N/A":
+					break
+			if producto != "N/A":
+				break
+
+		entry = {
+	       "Nombre del producto": producto,
+            "CPE": cpe,
+            "CVE": cve_id,
+            "Severity": severity,
+            "CVSS3.1 Base Score": score,
+            "Vector (URL)": vector_url,
+            "Descripción": desc,
+            "Fecha de publicación": date,
+            "CWE id": cwe_id
+                }
+		entries.append(entry)
+	
+	return entries
+
+
 
 def main():
 	p = define_parser()
@@ -113,8 +190,8 @@ def main():
 			print(f"[*] Found {data['totalResults']} results.")
 			if is_cve:
 				if args.outfile is not None:
-					#export_csv(data, args.outfile)
-					parse_fields(data)
+					entries = parse_fields(data)
+					export_csv(entries, args.outfile)
 			if args.verbose:
 				pprint(output.json())	
 		else:
