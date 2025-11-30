@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import sys
 import os
 import argparse
 import configparser
@@ -51,6 +52,7 @@ def define_parser():
 
 # Devolver cpe de un nombre random 
 def cpe_from_vendor(client, string): return client.make_request({"keywordSearch" : string})
+#def cpe_from_vendor(client, string): return client.make_request({"cpeMatchString" : "cpe:2.3:*:*:"+ string })
 
 # Devolver cves a partir de un cpe
 def cve_from_cpe(client, args): 
@@ -179,19 +181,19 @@ def main():
 	# cpe:2.3:a:cisco:ios:*
 
 	if is_cpe(args.query):
-		print(f"[*] Searching CVEs associated to: {args.query}")
+		#print(f"[*] Searching CVEs associated to: {args.query}")
 		output = cve_from_cpe(cve_client, args)
 		is_cve = True
 	else:
-		print(f"[*] Searching CPEs associated to: {args.query}")
+		#print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
 
 
 	if (output.status_code) == 200:
-		print(f"[*] Status 200")
+		#print(f"[*] Status 200")
 		data = output.json()
 		if(data['totalResults'] > 0):
-			print(f"[*] Found {data['totalResults']} results.")
+			#print(f"[*] Found {data['totalResults']} results.")
 			if is_cve:
 				if args.outfile is not None:
 					entries = parse_fields(data)
@@ -202,12 +204,13 @@ def main():
 				else:
 					for i in output.json()['products']:
 						match = i['cpe']['cpeName']
-						if args.query.lower().split(' ')[0] in (match.split(':')[3], match.split(':')[4]):
+						if args.query.lower().split(' ')[0] in match.split(':')[3] or args.query.lower().split(' ')[0] in match.split(':')[4]:
 							print(match)
+	
 
 
 		else:
-			print(f"[-] No results found.")
+			print(f"[-] No results found.", file=sys.stderr)
 
 
 
