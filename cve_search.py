@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import os
 import argparse
 import configparser
 import requests
@@ -48,8 +49,9 @@ def define_parser():
 
 	return parser
 
-# Devolver cpe de un nombre random
+# Devolver cpe de un nombre random 
 def cpe_from_vendor(client, string): return client.make_request({"keywordSearch" : string})
+#def cpe_from_vendor(client, string): return client.make_request({"cpeMatchString" : "cpe:2.3:*:*:"+ string })
 
 # Devolver cves a partir de un cpe
 def cve_from_cpe(client, args): 
@@ -74,12 +76,14 @@ def cve_from_cpe(client, args):
 	return client.make_request(params)
 
 def export_csv(entries, filename):
+	file_exists = os.path.exists(filename) and os.path.getsize(filename) > 0
 	if not filename.endswith(".csv"):
 		filename = filename + ".csv"	
-	with open(filename, "w", newline="") as csvfile:
+	with open(filename, "a", newline="") as csvfile:
 		fieldnames = FIELD_NAMES
 		writer = csv.DictWriter(csvfile, fieldnames)
-		writer.writeheader()
+		if not file_exists:
+			writer.writeheader()
 		for entr in entries:
 			writer.writerow(entr)	
 
@@ -183,6 +187,7 @@ def main():
 		print(f"[*] Searching CPEs associated to: {args.query}")
 		output = cpe_from_vendor(cpe_client, args.query)
 
+
 	if (output.status_code) == 200:
 		print(f"[*] Status 200")
 		data = output.json()
@@ -193,7 +198,15 @@ def main():
 					entries = parse_fields(data)
 					export_csv(entries, args.outfile)
 			if args.verbose:
-				pprint(output.json())	
+				if is_cve:
+					pprint(output.json())	
+				else:
+					for i in output.json()['products']:
+						match = i['cpe']['cpeName']
+						if args.query.lower().split(' ')[0] in (match.split(':')[3], match.split(':')[4]):
+							print(match)
+
+
 		else:
 			print(f"[-] No results found.")
 
