@@ -51,7 +51,6 @@ def define_parser():
 
 # Devolver cpe de un nombre random 
 def cpe_from_vendor(client, string): return client.make_request({"keywordSearch" : string})
-#def cpe_from_vendor(client, string): return client.make_request({"cpeMatchString" : "cpe:2.3:*:*:"+ string })
 
 # Devolver cves a partir de un cpe
 def cve_from_cpe(client, args): 
